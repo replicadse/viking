@@ -2,9 +2,12 @@ use {
     crate::config::{
         Campaign,
         End,
+        ErrorBehaviour,
+        Mark,
         Spec,
     },
     anyhow::Result,
+    fancy_regex::Regex,
     itertools::Itertools,
     reqwest::{
         header::{
@@ -129,20 +132,33 @@ impl Engine {
                 },
             };
 
+            let mut behaviours = Vec::<(Regex, &Mark)>::new();
+            for behav in &phase.behaviours.ok {
+                behaviours.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
+            }
+
             for msg in status_rx.iter() {
                 let stats = &mut thread_stats.get_mut(&msg.0).unwrap();
                 match msg.1 {
                     | ThreadEvent::Success { status_code } => {
                         stats.count += 1;
-                        if let StatusCode::OK = status_code {
-                            stats.success += 1;
-                        } else {
-                            stats.error += 1;
-                        };
+
+                        let s_code = status_code.to_string();
+                        for b in &behaviours {
+                            if b.0.is_match(&s_code).unwrap() {
+                                match b.1 {
+                                    | Mark::Success => stats.success += 1,
+                                    | Mark::Error => stats.error += 1,
+                                }
+                            }
+                        }
                     },
                     | ThreadEvent::Error {} => {
                         stats.count += 1;
                         stats.client_error += 1;
+                        match phase.behaviours.error {
+                            | ErrorBehaviour::Backoff(v) => std::thread::sleep(Duration::from_millis(v)),
+                        }
                     },
                 };
 

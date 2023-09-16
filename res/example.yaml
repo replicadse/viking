@@ -17,9 +17,11 @@ campaigns:
             per_page: [1000]
             from: [1262304000]
             to: [1262307600]
-        # behaviours:
-        #   - match: ^(200)$
-        #     mark: !success
-        #   - match: .*
-        #     mark: !error
-        #     sleep: 1000
+        behaviours:
+          ok:
+            - match: ^(200)$
+              mark: !success
+            - match: .*
+              mark: !error
+              sleep: 1000
+          error: !backoff 1000
