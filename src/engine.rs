@@ -222,13 +222,25 @@ impl Engine {
             println!("");
             println!("=== === ===");
             println!(
-                "Phase with {} requests ({} OK, {} Errors, {} Client errors) took {} seconds ({} ms)",
-                &thread_stats.iter().map(|v| v.1.count).sum::<usize>(),
-                &thread_stats.iter().map(|v| v.1.success).sum::<usize>(),
-                &thread_stats.iter().map(|v| v.1.error).sum::<usize>(),
-                &thread_stats.iter().map(|v| v.1.client_error).sum::<usize>(),
-                phase_elapsed.as_secs(),
-                phase_elapsed.as_millis()
+                "Phase with {} requests",
+                thread_stats.iter().map(|v| v.1.count).sum::<usize>()
+            );
+            println!("\ttook {}s ({}ms)", phase_elapsed.as_secs(), phase_elapsed.as_millis());
+            println!(
+                "\tavg {} requests / second",
+                thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32 / phase_elapsed.as_secs_f32()
+            );
+            println!(
+                "\tavg {} requests / second / thread",
+                thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32
+                    / phase_elapsed.as_secs_f32()
+                    / phase.threads as f32
+            );
+            println!(
+                "\tOK: {}, Error: {}, Client error: {}",
+                thread_stats.iter().map(|v| v.1.success).sum::<usize>(),
+                thread_stats.iter().map(|v| v.1.error).sum::<usize>(),
+                thread_stats.iter().map(|v| v.1.client_error).sum::<usize>(),
             );
         }
 
@@ -236,7 +248,7 @@ impl Engine {
         println!("");
         println!("=== === ===");
         println!(
-            "Raid took {} seconds ({} ms)",
+            "Raid took {} seconds ({} ms).",
             raid_elapsed.as_secs(),
             raid_elapsed.as_millis()
         );
