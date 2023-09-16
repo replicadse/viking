@@ -1,0 +1,23 @@
+version: "0.0"
+
+campaigns:
+  main:
+    phases:
+      - target: "http://localhost:8080/api/v1"
+        threads: 16
+        report:
+          interval: !seconds 4
+        spec: !get
+          header:
+            x-api-key:
+              - "asd-asd"
+          query:
+            param1:
+              - value1
+              - value2
+        behaviours:
+          - match: ^(200)$
+            mark: !success
+          - match: .*
+            mark: !error
+            sleep: 1000

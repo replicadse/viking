@@ -1,0 +1,33 @@
+version: "0.5"
+
+nodes:
+  build:
+    matrix:
+      dense:
+        dimensions:
+          - - env: {}
+            - env:
+                RELEASE: --release
+    tasks:
+      - script: |
+          set -e
+          export CARGO_FLAGS=""
+          echo cargo flags: \"$CARGO_FLAGS\"
+          cargo +stable build $CARGO_FLAGS
+
+  lint:
+    tasks:
+      - script: |
+          cargo +nightly fmt --all --check
+
+  test:
+    tasks:
+      - script: |
+          cargo +stable test --no-fail-fast
+
+  hook:pre-push:
+    pre:
+      - build
+      - test
+      - lint
+    tasks: []
