@@ -47,9 +47,16 @@ pub enum Interval {
 #[serde(rename_all = "snake_case")]
 pub enum Spec {
     Get {
-        header: HashMap<String, Vec<String>>,
-        query: HashMap<String, Vec<String>>,
+        header: HashMap<String, Vec<ValueParser>>,
+        query: HashMap<String, Vec<ValueParser>>,
     },
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValueParser {
+    Static(String),
+    Env(String),
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -84,6 +91,7 @@ pub enum Mark {
 #[serde(rename_all = "snake_case")]
 pub enum End {
     Requests(usize),
+    Seconds(u64),
 }
 
 #[cfg(test)]
