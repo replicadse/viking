@@ -1,14 +1,18 @@
-use args::{
-    ClapArgumentLoader,
-    Command,
+use {
+    args::{
+        ClapArgumentLoader,
+        Command,
+    },
+    engine::Engine,
 };
 
 include!("check_features.rs");
 
-pub mod args;
-pub mod config;
-pub mod error;
-pub mod reference;
+mod args;
+mod config;
+mod engine;
+mod error;
+mod reference;
 
 use {
     anyhow::Result,
@@ -41,7 +45,8 @@ async fn main() -> Result<()> {
             Ok(())
         },
         | Command::Execute { config, campaign } => {
-            dbg!(&config);
+            let engine = Engine {};
+            engine.raid(config.campaigns.get(&campaign).unwrap()).await?;
             Ok(())
         },
     }
