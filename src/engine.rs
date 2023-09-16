@@ -59,6 +59,7 @@ impl Engine {
             for t_idx in 0..phase.threads {
                 let thread_rx = tasks_rx.clone();
                 let thread_status_tx = status_tx.clone();
+                let on_error = phase.behaviours.error.clone();
 
                 let thread = spawn(move || {
                     let client = reqwest::blocking::Client::new();
@@ -80,6 +81,9 @@ impl Engine {
                             },
                             | Err(_) => {
                                 thread_status_tx.send((t_idx, ThreadEvent::Error {})).unwrap();
+                                match on_error {
+                                    | ErrorBehaviour::Backoff(v) => std::thread::sleep(Duration::from_millis(v)),
+                                };
                             },
                         }
                     }
@@ -202,9 +206,6 @@ impl Engine {
                     | ThreadEvent::Error {} => {
                         stats.count += 1;
                         stats.client_error += 1;
-                        match phase.behaviours.error {
-                            | ErrorBehaviour::Backoff(v) => std::thread::sleep(Duration::from_millis(v)),
-                        }
                     },
                 };
 
@@ -227,11 +228,11 @@ impl Engine {
             );
             println!("\ttook {}s ({}ms)", phase_elapsed.as_secs(), phase_elapsed.as_millis());
             println!(
-                "\tavg {} requests / second",
+                "\tavg {:.2} requests / second",
                 thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32 / phase_elapsed.as_secs_f32()
             );
             println!(
-                "\tavg {} requests / second / thread",
+                "\tavg {:.2} requests / second / thread",
                 thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32
                     / phase_elapsed.as_secs_f32()
                     / phase.threads as f32
