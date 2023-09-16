@@ -22,13 +22,13 @@ pub struct Campaign {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Phase {
-    pub target: String,
+    pub target: ValueParser,
     pub threads: usize,
     pub ends: End,
     pub timeout_ms: u64,
     pub report: Report,
     pub spec: Spec,
-    // pub behaviours: Vec<Behaviour>,
+    pub behaviours: Behaviours,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -47,30 +47,51 @@ pub enum Interval {
 #[serde(rename_all = "snake_case")]
 pub enum Spec {
     Get {
-        header: HashMap<String, Vec<String>>,
-        query: HashMap<String, Vec<String>>,
+        header: HashMap<String, Vec<ValueParser>>,
+        query: HashMap<String, Vec<ValueParser>>,
     },
 }
 
-// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-// #[serde(rename_all = "snake_case")]
-// pub struct Behaviour {
-//     #[serde(rename = "match")]
-//     pub match_: String,
-//     pub mark: Mark,
-// }
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValueParser {
+    Static(String),
+    Env(String),
+}
 
-// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-// #[serde(rename_all = "snake_case")]
-// pub enum Mark {
-//     Success,
-//     Error,
-// }
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Behaviours {
+    pub ok: Vec<Behaviour>,
+    pub error: ErrorBehaviour,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorBehaviour {
+    Backoff(u64),
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Behaviour {
+    #[serde(rename = "match")]
+    pub match_: String,
+    pub mark: Mark,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mark {
+    Success,
+    Error,
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum End {
     Requests(usize),
+    Seconds(u64),
 }
 
 #[cfg(test)]

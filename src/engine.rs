@@ -2,9 +2,13 @@ use {
     crate::config::{
         Campaign,
         End,
+        ErrorBehaviour,
+        Mark,
         Spec,
+        ValueParser,
     },
     anyhow::Result,
+    fancy_regex::Regex,
     itertools::Itertools,
     reqwest::{
         header::{
@@ -47,8 +51,8 @@ impl Engine {
         for phase in &campaign.phases {
             let phase_start = std::time::Instant::now();
             let (tasks_tx, tasks_rx) =
-                flume::unbounded::<(Method, String, HeaderMap, Vec<(String, String)>, Duration)>();
-            let (status_tx, status_rx) = flume::unbounded::<(usize, ThreadEvent)>();
+                flume::bounded::<(Method, String, HeaderMap, Vec<(String, String)>, Duration)>(phase.threads * 2);
+            let (status_tx, status_rx) = flume::bounded::<(usize, ThreadEvent)>(phase.threads * 2);
 
             let mut threads = Vec::<JoinHandle<_>>::with_capacity(phase.threads);
             let mut thread_stats = BTreeMap::<usize, ThreadStats>::new();
@@ -94,25 +98,70 @@ impl Engine {
 
             match &phase.spec {
                 | Spec::Get { header, query } => {
+                    let header_map = HeaderMap::from_iter(
+                        header
+                            .iter()
+                            .map(|v| {
+                                (
+                                    v.0.parse().unwrap(),
+                                    v.1.into_iter()
+                                        .map(|v| {
+                                            match v {
+                                                | ValueParser::Static(v) => v.to_owned(),
+                                                | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                            }
+                                        })
+                                        .join(",")
+                                        .parse()
+                                        .unwrap(),
+                                )
+                            })
+                            .collect::<Vec<(HeaderName, HeaderValue)>>(),
+                    );
+                    let query_map = query
+                        .iter()
+                        .map(|v| {
+                            (
+                                v.0.clone(),
+                                v.1.into_iter()
+                                    .map(|v| {
+                                        match v {
+                                            | ValueParser::Static(v) => v.to_owned(),
+                                            | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                        }
+                                    })
+                                    .join(","),
+                            )
+                        })
+                        .collect::<Vec<_>>();
+
+                    let target = match &phase.target {
+                        | ValueParser::Static(v) => v.to_owned(),
+                        | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                    };
+                    println!("{}", &target);
+                    let timeout_ms = phase.timeout_ms;
+
                     match phase.ends {
                         | End::Requests(v) => {
-                            let header_map = HeaderMap::from_iter(
-                                header
-                                    .iter()
-                                    .map(|v| (v.0.parse().unwrap(), v.1.into_iter().join(",").parse().unwrap()))
-                                    .collect::<Vec<(HeaderName, HeaderValue)>>(),
-                            );
-                            let query_map = query
-                                .iter()
-                                .map(|v| (v.0.clone(), v.1.into_iter().join(",")))
-                                .collect::<Vec<_>>();
-
-                            let target = phase.target.clone();
-                            let timeout_ms = phase.timeout_ms;
-
-                            // producer thread
                             spawn(move || {
                                 for _ in 0..v {
+                                    tasks_tx
+                                        .send((
+                                            Method::GET,
+                                            target.clone(),
+                                            header_map.clone(),
+                                            query_map.clone(),
+                                            Duration::from_millis(timeout_ms),
+                                        ))
+                                        .unwrap();
+                                }
+                            });
+                        },
+                        | End::Seconds(v) => {
+                            let now = std::time::Instant::now();
+                            spawn(move || {
+                                while now.elapsed().as_secs() < v {
                                     tasks_tx
                                         .send((
                                             Method::GET,
@@ -129,20 +178,33 @@ impl Engine {
                 },
             };
 
+            let mut behaviours = Vec::<(Regex, &Mark)>::new();
+            for behav in &phase.behaviours.ok {
+                behaviours.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
+            }
+
             for msg in status_rx.iter() {
                 let stats = &mut thread_stats.get_mut(&msg.0).unwrap();
                 match msg.1 {
                     | ThreadEvent::Success { status_code } => {
                         stats.count += 1;
-                        if let StatusCode::OK = status_code {
-                            stats.success += 1;
-                        } else {
-                            stats.error += 1;
-                        };
+                        let s_code = status_code.as_u16().to_string();
+                        for b in &behaviours {
+                            if b.0.is_match(&s_code).unwrap() {
+                                match b.1 {
+                                    | Mark::Success => stats.success += 1,
+                                    | Mark::Error => stats.error += 1,
+                                }
+                                break;
+                            }
+                        }
                     },
                     | ThreadEvent::Error {} => {
                         stats.count += 1;
                         stats.client_error += 1;
+                        match phase.behaviours.error {
+                            | ErrorBehaviour::Backoff(v) => std::thread::sleep(Duration::from_millis(v)),
+                        }
                     },
                 };
 
