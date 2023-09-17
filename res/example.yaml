@@ -5,11 +5,10 @@ campaigns:
     phases:
       - target: !env "API_URI"
         threads: 32
-        # ends: !requests 2000
-        ends: !seconds 60
-        timeout_ms: 1000
-        report:
-          interval: !seconds 4
+        ends:
+          requests: 2000
+          time: !s 60
+        timeout: !s 2000
         spec: !get
           header:
             x-api-key:
@@ -29,5 +28,4 @@ campaigns:
               mark: !success
             - match: .*
               mark: !error
-              sleep: 1000
           error: !backoff 1000

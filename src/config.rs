@@ -21,26 +21,31 @@ pub struct Campaign {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum Duration {
+    #[serde(rename = "ms")]
+    MilliSeconds(u64),
+    #[serde(rename = "s")]
+    Seconds(u64),
+}
+
+impl Duration {
+    pub fn to_ms(&self) -> u64 {
+        match self {
+            | Duration::MilliSeconds(v) => *v,
+            | Duration::Seconds(v) => v * 1000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct Phase {
     pub target: ValueParser,
     pub threads: usize,
     pub ends: End,
-    pub timeout_ms: u64,
-    pub report: Report,
+    pub timeout: Duration,
     pub spec: Spec,
     pub behaviours: Behaviours,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub struct Report {
-    pub interval: Interval,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Interval {
-    Seconds(usize),
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -89,9 +94,9 @@ pub enum Mark {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum End {
-    Requests(usize),
-    Seconds(u64),
+pub struct End {
+    pub requests: Option<usize>,
+    pub time: Option<Duration>,
 }
 
 #[cfg(test)]

@@ -1,7 +1,6 @@
 use {
     crate::config::{
         Campaign,
-        End,
         ErrorBehaviour,
         Mark,
         Spec,
@@ -143,42 +142,38 @@ impl Engine {
                         | ValueParser::Static(v) => v.to_owned(),
                         | ValueParser::Env(v) => std::env::var(v).unwrap(),
                     };
-                    println!("{}", &target);
-                    let timeout_ms = phase.timeout_ms;
 
-                    match phase.ends {
-                        | End::Requests(v) => {
-                            spawn(move || {
-                                for _ in 0..v {
-                                    tasks_tx
-                                        .send((
-                                            Method::GET,
-                                            target.clone(),
-                                            header_map.clone(),
-                                            query_map.clone(),
-                                            Duration::from_millis(timeout_ms),
-                                        ))
-                                        .unwrap();
+                    let timeout_ms = phase.timeout.to_ms();
+                    let cond_req = phase.ends.requests.clone();
+                    let cond_time = phase.ends.time.clone();
+
+                    spawn(move || {
+                        let mut req_idx = 0_usize;
+                        let start = std::time::Instant::now();
+                        loop {
+                            if let Some(v) = &cond_req {
+                                if req_idx >= *v {
+                                    break;
                                 }
-                            });
-                        },
-                        | End::Seconds(v) => {
-                            let now = std::time::Instant::now();
-                            spawn(move || {
-                                while now.elapsed().as_secs() < v {
-                                    tasks_tx
-                                        .send((
-                                            Method::GET,
-                                            target.clone(),
-                                            header_map.clone(),
-                                            query_map.clone(),
-                                            Duration::from_millis(timeout_ms),
-                                        ))
-                                        .unwrap();
+                            }
+                            if let Some(v) = &cond_time {
+                                if start.elapsed().as_millis() >= v.to_ms() as u128 {
+                                    break;
                                 }
-                            });
-                        },
-                    }
+                            }
+
+                            tasks_tx
+                                .send((
+                                    Method::GET,
+                                    target.clone(),
+                                    header_map.clone(),
+                                    query_map.clone(),
+                                    Duration::from_millis(timeout_ms),
+                                ))
+                                .unwrap();
+                            req_idx += 1;
+                        }
+                    });
                 },
             };
 
