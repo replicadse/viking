@@ -7,6 +7,12 @@
 
 `viking` is unstable.
 
+## Installing
+
+```bash
+cargo install viking
+```
+
 ## Example configuration
 
 ```bash
