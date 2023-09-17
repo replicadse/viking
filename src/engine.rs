@@ -1,7 +1,6 @@
 use {
     crate::config::{
         Campaign,
-        ErrorBehaviour,
         Mark,
         Spec,
         ValueParser,
@@ -80,9 +79,9 @@ impl Engine {
                             },
                             | Err(_) => {
                                 thread_status_tx.send((t_idx, ThreadEvent::Error {})).unwrap();
-                                match on_error {
-                                    | ErrorBehaviour::Backoff(v) => std::thread::sleep(Duration::from_millis(v)),
-                                };
+                                if let Some(v) = &on_error.backoff {
+                                    std::thread::sleep(Duration::from_millis(v.to_ms()));
+                                }
                             },
                         }
                     }

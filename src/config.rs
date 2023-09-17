@@ -73,8 +73,8 @@ pub struct Behaviours {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ErrorBehaviour {
-    Backoff(u64),
+pub struct ErrorBehaviour {
+    pub backoff: Option<Duration>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

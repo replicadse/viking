@@ -48,7 +48,7 @@ pub(crate) enum Command {
     Autocomplete { path: String, shell: clap_complete::Shell },
 
     Init,
-    Execute { config: Config, campaign: String },
+    Raid { config: Config, campaign: String },
 }
 
 pub(crate) struct ClapArgumentLoader {}
@@ -92,8 +92,8 @@ impl ClapArgumentLoader {
             )
             .subcommand(clap::Command::new("init").about("Renders and example configuration to STDOUT."))
             .subcommand(
-                clap::Command::new("execute")
-                    .about("Execute a campaign.")
+                clap::Command::new("raid")
+                    .about("Go on a raid campaign.")
                     .arg(clap::Arg::new("file").short('f').long("file").required(true))
                     .arg(clap::Arg::new("campaign").short('c').long("campaign").required(true)),
             )
@@ -124,7 +124,7 @@ impl ClapArgumentLoader {
             }
         } else if let Some(_) = command.subcommand_matches("init") {
             Command::Init
-        } else if let Some(subc) = command.subcommand_matches("execute") {
+        } else if let Some(subc) = command.subcommand_matches("raid") {
             let config_path = subc.get_one::<String>("file").unwrap();
             let config_file = std::fs::read_to_string(config_path)?;
 
@@ -138,7 +138,7 @@ impl ClapArgumentLoader {
                 .into());
             }
 
-            Command::Execute {
+            Command::Raid {
                 config: serde_yaml::from_str::<Config>(&config_file)?,
                 campaign: subc.get_one::<String>("campaign").unwrap().to_owned(),
             }

@@ -51,6 +51,7 @@ campaigns:
               mark: !success
             - match: .*
               mark: !error
-          error: !backoff 1000
+          error:
+            backoff: !s 1000
 
 ```

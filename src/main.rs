@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
             println!("{}", include_str!("../res/example.yaml"));
             Ok(())
         },
-        | Command::Execute { config, campaign } => {
+        | Command::Raid { config, campaign } => {
             let engine = Engine {};
             engine.raid(config.campaigns.get(&campaign).unwrap()).await?;
             Ok(())
