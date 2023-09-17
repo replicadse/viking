@@ -1,15 +1,29 @@
 use {
-    crate::config::{Campaign, ErrorBehaviour, Mark, Spec, ValueParser},
+    crate::config::{
+        Campaign,
+        ErrorBehaviour,
+        Mark,
+        Spec,
+        ValueParser,
+    },
     anyhow::Result,
     fancy_regex::Regex,
     itertools::Itertools,
     reqwest::{
-        header::{HeaderMap, HeaderName, HeaderValue},
-        Method, StatusCode,
+        header::{
+            HeaderMap,
+            HeaderName,
+            HeaderValue,
+        },
+        Method,
+        StatusCode,
     },
     std::{
         collections::BTreeMap,
-        thread::{spawn, JoinHandle},
+        thread::{
+            spawn,
+            JoinHandle,
+        },
         time::Duration,
     },
 };
@@ -59,12 +73,9 @@ impl Engine {
                         match response {
                             | Ok(v) => {
                                 thread_status_tx
-                                    .send((
-                                        t_idx,
-                                        ThreadEvent::Success {
-                                            status_code: v.status(),
-                                        },
-                                    ))
+                                    .send((t_idx, ThreadEvent::Success {
+                                        status_code: v.status(),
+                                    }))
                                     .unwrap();
                             },
                             | Err(_) => {
@@ -78,15 +89,12 @@ impl Engine {
                 });
                 // consumer threads
                 threads.push(thread);
-                thread_stats.insert(
-                    t_idx,
-                    ThreadStats {
-                        count: 0,
-                        success: 0,
-                        error: 0,
-                        client_error: 0,
-                    },
-                );
+                thread_stats.insert(t_idx, ThreadStats {
+                    count: 0,
+                    success: 0,
+                    error: 0,
+                    client_error: 0,
+                });
             }
             drop(tasks_rx);
             drop(status_tx);
@@ -100,9 +108,11 @@ impl Engine {
                                 (
                                     v.0.parse().unwrap(),
                                     v.1.into_iter()
-                                        .map(|v| match v {
-                                            | ValueParser::Static(v) => v.to_owned(),
-                                            | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                        .map(|v| {
+                                            match v {
+                                                | ValueParser::Static(v) => v.to_owned(),
+                                                | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                            }
                                         })
                                         .join(",")
                                         .parse()
@@ -117,9 +127,11 @@ impl Engine {
                             (
                                 v.0.clone(),
                                 v.1.into_iter()
-                                    .map(|v| match v {
-                                        | ValueParser::Static(v) => v.to_owned(),
-                                        | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                    .map(|v| {
+                                        match v {
+                                            | ValueParser::Static(v) => v.to_owned(),
+                                            | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                        }
                                     })
                                     .join(","),
                             )
