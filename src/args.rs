@@ -47,6 +47,7 @@ pub(crate) enum Command {
     Manual { path: String, format: ManualFormat },
     Autocomplete { path: String, shell: clap_complete::Shell },
 
+    Init,
     Execute { config: Config, campaign: String },
 }
 
@@ -89,6 +90,7 @@ impl ClapArgumentLoader {
                             .required(true),
                     ),
             )
+            .subcommand(clap::Command::new("init").about("Renders and example configuration to STDOUT."))
             .subcommand(
                 clap::Command::new("execute")
                     .about("Execute a campaign.")
@@ -120,6 +122,8 @@ impl ClapArgumentLoader {
                 path: subc.get_one::<String>("out").unwrap().into(),
                 shell: clap_complete::Shell::from_str(subc.get_one::<String>("shell").unwrap().as_str()).unwrap(),
             }
+        } else if let Some(_) = command.subcommand_matches("init") {
+            Command::Init
         } else if let Some(subc) = command.subcommand_matches("execute") {
             let config_path = subc.get_one::<String>("file").unwrap();
             let config_file = std::fs::read_to_string(config_path)?;

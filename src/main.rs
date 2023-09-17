@@ -44,6 +44,10 @@ async fn main() -> Result<()> {
             reference::build_shell_completion(&out_path, &shell)?;
             Ok(())
         },
+        | Command::Init => {
+            println!("{}", include_str!("../res/example.yaml"));
+            Ok(())
+        },
         | Command::Execute { config, campaign } => {
             let engine = Engine {};
             engine.raid(config.campaigns.get(&campaign).unwrap()).await?;
