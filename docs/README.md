@@ -6,3 +6,45 @@
 ## Project state
 
 `viking` is unstable.
+
+## Example configuration
+
+```bash
+# This command renders an example configuration to STDOUT.
+viking init
+```
+
+```yaml
+version: "0.0"
+
+campaigns:
+  main:
+    phases:
+      - target: !env "API_URI"
+        threads: 32
+        ends:
+          requests: 2000
+          time: !s 60
+        timeout: !s 2000
+        spec: !get
+          header:
+            x-api-key:
+              - !env "API_KEY"
+          query:
+            page:
+              - !static 0
+            per_page:
+              - !static 1000
+            from:
+              - !static 1262304000
+            to:
+              - !static 1262307600
+        behaviours:
+          ok:
+            - match: ^(200)$
+              mark: !success
+            - match: .*
+              mark: !error
+          error: !backoff 1000
+
+```

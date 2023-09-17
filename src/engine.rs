@@ -1,29 +1,15 @@
 use {
-    crate::config::{
-        Campaign,
-        ErrorBehaviour,
-        Mark,
-        Spec,
-        ValueParser,
-    },
+    crate::config::{Campaign, ErrorBehaviour, Mark, Spec, ValueParser},
     anyhow::Result,
     fancy_regex::Regex,
     itertools::Itertools,
     reqwest::{
-        header::{
-            HeaderMap,
-            HeaderName,
-            HeaderValue,
-        },
-        Method,
-        StatusCode,
+        header::{HeaderMap, HeaderName, HeaderValue},
+        Method, StatusCode,
     },
     std::{
         collections::BTreeMap,
-        thread::{
-            spawn,
-            JoinHandle,
-        },
+        thread::{spawn, JoinHandle},
         time::Duration,
     },
 };
@@ -73,9 +59,12 @@ impl Engine {
                         match response {
                             | Ok(v) => {
                                 thread_status_tx
-                                    .send((t_idx, ThreadEvent::Success {
-                                        status_code: v.status(),
-                                    }))
+                                    .send((
+                                        t_idx,
+                                        ThreadEvent::Success {
+                                            status_code: v.status(),
+                                        },
+                                    ))
                                     .unwrap();
                             },
                             | Err(_) => {
@@ -89,12 +78,15 @@ impl Engine {
                 });
                 // consumer threads
                 threads.push(thread);
-                thread_stats.insert(t_idx, ThreadStats {
-                    count: 0,
-                    success: 0,
-                    error: 0,
-                    client_error: 0,
-                });
+                thread_stats.insert(
+                    t_idx,
+                    ThreadStats {
+                        count: 0,
+                        success: 0,
+                        error: 0,
+                        client_error: 0,
+                    },
+                );
             }
             drop(tasks_rx);
             drop(status_tx);
@@ -108,11 +100,9 @@ impl Engine {
                                 (
                                     v.0.parse().unwrap(),
                                     v.1.into_iter()
-                                        .map(|v| {
-                                            match v {
-                                                | ValueParser::Static(v) => v.to_owned(),
-                                                | ValueParser::Env(v) => std::env::var(v).unwrap(),
-                                            }
+                                        .map(|v| match v {
+                                            | ValueParser::Static(v) => v.to_owned(),
+                                            | ValueParser::Env(v) => std::env::var(v).unwrap(),
                                         })
                                         .join(",")
                                         .parse()
@@ -127,11 +117,9 @@ impl Engine {
                             (
                                 v.0.clone(),
                                 v.1.into_iter()
-                                    .map(|v| {
-                                        match v {
-                                            | ValueParser::Static(v) => v.to_owned(),
-                                            | ValueParser::Env(v) => std::env::var(v).unwrap(),
-                                        }
+                                    .map(|v| match v {
+                                        | ValueParser::Static(v) => v.to_owned(),
+                                        | ValueParser::Env(v) => std::env::var(v).unwrap(),
                                     })
                                     .join(","),
                             )
@@ -204,7 +192,7 @@ impl Engine {
                     },
                 };
 
-                println!(
+                eprintln!(
                     "Thread #{}: Count: {}, OK: {}, Error: {}, Client Error: {}",
                     msg.0, stats.count, stats.success, stats.error, stats.client_error
                 );
@@ -215,24 +203,24 @@ impl Engine {
             }
 
             let phase_elapsed = phase_start.elapsed();
-            println!("");
-            println!("=== === ===");
-            println!(
+            eprintln!("");
+            eprintln!("=== === ===");
+            eprintln!(
                 "Phase with {} requests",
                 thread_stats.iter().map(|v| v.1.count).sum::<usize>()
             );
-            println!("\ttook {}s ({}ms)", phase_elapsed.as_secs(), phase_elapsed.as_millis());
-            println!(
+            eprintln!("\ttook {}s ({}ms)", phase_elapsed.as_secs(), phase_elapsed.as_millis());
+            eprintln!(
                 "\tavg {:.2} requests / second",
                 thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32 / phase_elapsed.as_secs_f32()
             );
-            println!(
+            eprintln!(
                 "\tavg {:.2} requests / second / thread",
                 thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32
                     / phase_elapsed.as_secs_f32()
                     / phase.threads as f32
             );
-            println!(
+            eprintln!(
                 "\tOK: {}, Error: {}, Client error: {}",
                 thread_stats.iter().map(|v| v.1.success).sum::<usize>(),
                 thread_stats.iter().map(|v| v.1.error).sum::<usize>(),
@@ -241,9 +229,9 @@ impl Engine {
         }
 
         let raid_elapsed = raid_start.elapsed();
-        println!("");
-        println!("=== === ===");
-        println!(
+        eprintln!("");
+        eprintln!("=== === ===");
+        eprintln!(
             "Raid took {} seconds ({} ms).",
             raid_elapsed.as_secs(),
             raid_elapsed.as_millis()
