@@ -6,6 +6,10 @@ use {
         ValueParser,
     },
     anyhow::Result,
+    crossterm::terminal::{
+        Clear,
+        ClearType,
+    },
     fancy_regex::Regex,
     itertools::Itertools,
     reqwest::{
@@ -27,6 +31,14 @@ use {
     },
 };
 
+#[derive(Debug)]
+struct ThreadStats {
+    count: usize,
+    success: usize,
+    error: usize,
+    client_error: usize,
+}
+
 pub struct Engine {}
 
 impl Engine {
@@ -35,13 +47,6 @@ impl Engine {
         enum ThreadEvent {
             Success { status_code: StatusCode },
             Error {},
-        }
-        #[derive(Debug)]
-        struct ThreadStats {
-            count: usize,
-            success: usize,
-            error: usize,
-            client_error: usize,
         }
 
         let raid_start = std::time::Instant::now();
@@ -203,10 +208,7 @@ impl Engine {
                     },
                 };
 
-                eprintln!(
-                    "Thread #{}: Count: {}, OK: {}, Error: {}, Client Error: {}",
-                    msg.0, stats.count, stats.success, stats.error, stats.client_error
-                );
+                self.report(&thread_stats);
             }
 
             for t in threads {
@@ -249,5 +251,16 @@ impl Engine {
         );
 
         Ok(())
+    }
+
+    fn report(&self, data: &BTreeMap<usize, ThreadStats>) {
+        let stdout = &mut std::io::stdout();
+        crossterm::execute!(stdout, Clear(ClearType::All)).unwrap();
+        for d in data {
+            eprintln!(
+                "Thread #{}:\tTotal: {}\tOK: {}\tError: {}\tRequest Error: {}",
+                d.0, d.1.count, d.1.success, d.1.error, d.1.client_error
+            )
+        }
     }
 }
