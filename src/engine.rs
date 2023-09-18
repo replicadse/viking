@@ -186,6 +186,8 @@ impl Engine {
                 behaviours.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
             }
 
+            let mut report_timer = std::time::Instant::now();
+            self.report(&thread_stats);
             for msg in status_rx.iter() {
                 let stats = &mut thread_stats.get_mut(&msg.0).unwrap();
                 match msg.1 {
@@ -208,8 +210,17 @@ impl Engine {
                     },
                 };
 
-                self.report(&thread_stats);
+                if let Some(v) = &phase.report.interval {
+                    if report_timer.elapsed().as_millis() > v.to_ms() as u128 {
+                        self.report(&thread_stats);
+                        report_timer = std::time::Instant::now();
+                    }
+                } else {
+                    self.report(&thread_stats);
+                    report_timer = std::time::Instant::now();
+                }
             }
+            self.report(&thread_stats);
 
             for t in threads {
                 t.join().unwrap();

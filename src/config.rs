@@ -28,6 +28,12 @@ pub enum Duration {
     Seconds(u64),
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Report {
+    pub interval: Option<Duration>,
+}
+
 impl Duration {
     pub fn to_ms(&self) -> u64 {
         match self {
@@ -44,6 +50,7 @@ pub struct Phase {
     pub threads: usize,
     pub ends: End,
     pub timeout: Duration,
+    pub report: Report,
     pub spec: Spec,
     pub behaviours: Behaviours,
 }

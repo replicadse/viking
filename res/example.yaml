@@ -9,6 +9,8 @@ campaigns:
           requests: 2000
           time: !s 60
         timeout: !s 2000
+        report:
+          interval: !s 1
         spec: !get
           header:
             x-api-key:
