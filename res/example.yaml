@@ -17,7 +17,9 @@ campaigns:
               - !env "API_KEY"
           query:
             page:
-              - !static 0
+              - !increment
+                start: 0
+                step: 1
             per_page:
               - !static 1000
             from:

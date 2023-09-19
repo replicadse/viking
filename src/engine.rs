@@ -2,6 +2,7 @@ use {
     crate::config::{
         Campaign,
         Mark,
+        QueryValueParser,
         Spec,
         ValueParser,
     },
@@ -125,19 +126,15 @@ impl Engine {
                             })
                             .collect::<Vec<(HeaderName, HeaderValue)>>(),
                     );
-                    let query_map = query
+
+                    let mut query_map = query
                         .iter()
                         .map(|v| {
                             (
                                 v.0.clone(),
                                 v.1.into_iter()
-                                    .map(|v| {
-                                        match v {
-                                            | ValueParser::Static(v) => v.to_owned(),
-                                            | ValueParser::Env(v) => std::env::var(v).unwrap(),
-                                        }
-                                    })
-                                    .join(","),
+                                    .map(|v| QueryValueParserState::from(v.clone()))
+                                    .collect::<Vec<_>>(),
                             )
                         })
                         .collect::<Vec<_>>();
@@ -154,6 +151,7 @@ impl Engine {
                     spawn(move || {
                         let mut req_idx = 0_usize;
                         let start = std::time::Instant::now();
+
                         loop {
                             if let Some(v) = &cond_req {
                                 if req_idx >= *v {
@@ -166,12 +164,21 @@ impl Engine {
                                 }
                             }
 
+                            let mut query_args = Vec::<(String, String)>::new();
+                            for q in &mut query_map {
+                                let mut q_str = "".to_owned();
+                                for q1 in &mut q.1 {
+                                    q_str += &q1.access_string();
+                                }
+                                query_args.push((q.0.clone(), q_str));
+                            }
+
                             tasks_tx
                                 .send((
                                     Method::GET,
                                     target.clone(),
                                     header_map.clone(),
-                                    query_map.clone(),
+                                    query_args,
                                     Duration::from_millis(timeout_ms),
                                 ))
                                 .unwrap();
@@ -272,6 +279,35 @@ impl Engine {
                 "Thread #{}:\tTotal: {}\tOK: {}\tError: {}\tRequest Error: {}",
                 d.0, d.1.count, d.1.success, d.1.error, d.1.client_error
             )
+        }
+    }
+}
+
+enum QueryValueParserState {
+    String(String),
+    Increment { state: usize, step: usize },
+}
+impl QueryValueParserState {
+    pub fn access_string(&mut self) -> String {
+        match self {
+            | Self::String(v) => v.clone(),
+            | Self::Increment { state, step } => {
+                let v = *state;
+                *self = Self::Increment {
+                    state: (*state) + (*step),
+                    step: *step,
+                };
+                v.to_string()
+            },
+        }
+    }
+}
+impl From<QueryValueParser> for QueryValueParserState {
+    fn from(value: QueryValueParser) -> Self {
+        match value {
+            | QueryValueParser::Static(v) => Self::String(v),
+            | QueryValueParser::Env(v) => Self::String(std::env::var(v).unwrap()),
+            | QueryValueParser::Increment { start, step } => Self::Increment { state: start, step },
         }
     }
 }
