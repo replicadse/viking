@@ -194,7 +194,7 @@ impl Engine {
             }
 
             let mut report_timer = std::time::Instant::now();
-            self.report(&thread_stats);
+            self.report(&thread_stats, phase_start.elapsed());
             for msg in status_rx.iter() {
                 let stats = &mut thread_stats.get_mut(&msg.0).unwrap();
                 match msg.1 {
@@ -219,44 +219,20 @@ impl Engine {
 
                 if let Some(v) = &phase.report.interval {
                     if report_timer.elapsed().as_millis() > v.to_ms() as u128 {
-                        self.report(&thread_stats);
+                        self.report(&thread_stats, phase_start.elapsed());
                         report_timer = std::time::Instant::now();
                     }
                 } else {
-                    self.report(&thread_stats);
+                    self.report(&thread_stats, phase_start.elapsed());
                     report_timer = std::time::Instant::now();
                 }
             }
-            self.report(&thread_stats);
+
+            self.report(&thread_stats, phase_start.elapsed());
 
             for t in threads {
                 t.join().unwrap();
             }
-
-            let phase_elapsed = phase_start.elapsed();
-            eprintln!("");
-            eprintln!("=== === ===");
-            eprintln!(
-                "Phase with {} requests",
-                thread_stats.iter().map(|v| v.1.count).sum::<usize>()
-            );
-            eprintln!("\ttook {}s ({}ms)", phase_elapsed.as_secs(), phase_elapsed.as_millis());
-            eprintln!(
-                "\tavg {:.2} requests / second",
-                thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32 / phase_elapsed.as_secs_f32()
-            );
-            eprintln!(
-                "\tavg {:.2} requests / second / thread",
-                thread_stats.iter().map(|v| v.1.count).sum::<usize>() as f32
-                    / phase_elapsed.as_secs_f32()
-                    / phase.threads as f32
-            );
-            eprintln!(
-                "\tOK: {}, Error: {}, Client error: {}",
-                thread_stats.iter().map(|v| v.1.success).sum::<usize>(),
-                thread_stats.iter().map(|v| v.1.error).sum::<usize>(),
-                thread_stats.iter().map(|v| v.1.client_error).sum::<usize>(),
-            );
         }
 
         let raid_elapsed = raid_start.elapsed();
@@ -271,9 +247,28 @@ impl Engine {
         Ok(())
     }
 
-    fn report(&self, data: &BTreeMap<usize, ThreadStats>) {
+    fn report(&self, data: &BTreeMap<usize, ThreadStats>, elapsed: Duration) {
         let stdout = &mut std::io::stdout();
         crossterm::execute!(stdout, Clear(ClearType::All)).unwrap();
+        eprintln!("Stats:");
+        eprintln!("{} requests", data.iter().map(|v| v.1.count).sum::<usize>());
+        eprintln!("{:.2}s elapsed", elapsed.as_secs_f32());
+        eprintln!(
+            "avg {:.2} requests / second",
+            data.iter().map(|v| v.1.count).sum::<usize>() as f32 / elapsed.as_secs_f32()
+        );
+        eprintln!(
+            "avg {:.2} requests / second / thread",
+            data.iter().map(|v| v.1.count).sum::<usize>() as f32 / elapsed.as_secs_f32() / data.len() as f32
+        );
+        eprintln!(
+            "OK: {}, Error: {}, Client error: {}",
+            data.iter().map(|v| v.1.success).sum::<usize>(),
+            data.iter().map(|v| v.1.error).sum::<usize>(),
+            data.iter().map(|v| v.1.client_error).sum::<usize>(),
+        );
+        eprintln!("");
+        eprintln!("Thread details:");
         for d in data {
             eprintln!(
                 "Thread #{}:\tTotal: {}\tOK: {}\tError: {}\tRequest Error: {}",
