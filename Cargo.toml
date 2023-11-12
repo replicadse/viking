@@ -13,6 +13,7 @@ readme = "docs/README.md"
 
 [features]
 default = []
+experimental = []
 
 [dependencies]
 async-trait = "0.1.72"
@@ -27,7 +28,7 @@ serde_json = "1.0.103"
 bytes = "1.4.0"
 mime = "0.3.17"
 handlebars = "4.3.7"
-crossterm = "0.26.1"
+crossterm = "0.27.0"
 itertools = "0.11.0"
 schemars = "0.8.12"
 fancy-regex = "0.11.0"

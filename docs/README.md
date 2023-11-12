@@ -21,37 +21,46 @@ viking init
 ```
 
 ```yaml
-version: "0.1"
+version: "0.2"
 
 campaigns:
   main:
     phases:
-      - target: !env "API_URI"
+      - target:
+          env: "API_URI"
         threads: 32
         ends:
-          requests: 2000
-          time: !s 60
-        timeout: !s 2000
-        spec: !get
-          header:
-            x-api-key:
-              - !env "API_KEY"
-          query:
-            page:
-              - !static 0
-            per_page:
-              - !static 1000
-            from:
-              - !static 1262304000
-            to:
-              - !static 1262307600
+          requests: 500
+          #time: !s 60
+        timeout:
+          s: 2000
+        report:
+          interval:
+            s: 1
+        spec:
+          get:
+            header:
+              x-api-key:
+                - env: "API_KEY"
+            query:
+              page:
+                - increment:
+                    start: 0
+                    step: 1
+              per_page:
+                - static: 4000
+              from:
+                - static: 1694901600
+              to:
+                - static: 1694905200
         behaviours:
           ok:
             - match: ^(200)$
-              mark: !success
+              mark: success
             - match: .*
-              mark: !error
+              mark: error
           error:
-            backoff: !s 1000
+            backoff:
+              s: 1
 
 ```

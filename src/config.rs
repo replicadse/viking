@@ -10,6 +10,7 @@ pub struct WithVersion {
 #[serde(rename_all = "snake_case")]
 pub struct Config {
     pub version: String,
+    #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     pub campaigns: HashMap<String, Campaign>,
 }
 

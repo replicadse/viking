@@ -44,11 +44,21 @@ pub(crate) enum ManualFormat {
 
 #[derive(Debug)]
 pub(crate) enum Command {
-    Manual { path: String, format: ManualFormat },
-    Autocomplete { path: String, shell: clap_complete::Shell },
+    Manual {
+        path: String,
+        format: ManualFormat,
+    },
+    Autocomplete {
+        path: String,
+        shell: clap_complete::Shell,
+    },
 
     Init,
-    Raid { config: Config, campaign: String },
+    Raid {
+        config: Config,
+        campaign: String,
+        loot: Option<String>,
+    },
 }
 
 pub(crate) struct ClapArgumentLoader {}
@@ -95,7 +105,8 @@ impl ClapArgumentLoader {
                 clap::Command::new("raid")
                     .about("Go on a raid campaign.")
                     .arg(clap::Arg::new("file").short('f').long("file").required(true))
-                    .arg(clap::Arg::new("campaign").short('c').long("campaign").required(true)),
+                    .arg(clap::Arg::new("campaign").short('c').long("campaign").required(true))
+                    .arg(clap::Arg::new("loot").short('l').long("loot").required(false)),
             )
     }
 
@@ -141,6 +152,7 @@ impl ClapArgumentLoader {
             Command::Raid {
                 config: serde_yaml::from_str::<Config>(&config_file)?,
                 campaign: subc.get_one::<String>("campaign").unwrap().to_owned(),
+                loot: subc.get_one::<String>("loot").cloned(),
             }
         } else {
             return Err(Error::UnknownCommand.into());

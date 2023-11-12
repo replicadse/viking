@@ -43,7 +43,7 @@ struct ThreadStats {
 pub struct Engine {}
 
 impl Engine {
-    pub async fn raid(&self, campaign: &Campaign) -> Result<()> {
+    pub async fn raid(&self, campaign: &Campaign, recorder: Option<flume::Sender<String>>) -> Result<()> {
         #[derive(Debug)]
         enum ThreadEvent {
             Success { status_code: StatusCode },
@@ -147,6 +147,7 @@ impl Engine {
                     let timeout_ms = phase.timeout.to_ms();
                     let cond_req = phase.ends.requests.clone();
                     let cond_time = phase.ends.time.clone();
+                    let thread_recorder = recorder.clone();
 
                     spawn(move || {
                         let mut req_idx = 0_usize;
@@ -173,15 +174,18 @@ impl Engine {
                                 query_args.push((q.0.clone(), q_str));
                             }
 
-                            tasks_tx
-                                .send((
-                                    Method::GET,
-                                    target.clone(),
-                                    header_map.clone(),
-                                    query_args,
-                                    Duration::from_millis(timeout_ms),
-                                ))
-                                .unwrap();
+                            let payload = (
+                                Method::GET,
+                                target.clone(),
+                                header_map.clone(),
+                                query_args,
+                                Duration::from_millis(timeout_ms),
+                            );
+                            match &thread_recorder {
+                                | Some(v) => v.send(format!("{:?}", payload)).unwrap(),
+                                | None => {},
+                            };
+                            tasks_tx.send(payload).unwrap();
                             req_idx += 1;
                         }
                     });
