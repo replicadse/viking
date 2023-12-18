@@ -7,7 +7,19 @@
 
 ## Project state
 
-`viking` is unstable.
+`viking` is unstable but really cool.
+
+## Abstract
+
+`viking` is an opinionated API load testing tool. A few of the key characteristics are:
+
+- Extensive use of multithreading
+- Per-thread blocking requests
+- Ability to record requests and responses
+- YAML based configuration
+- Configurable live reporting
+- Configurable error behavior
+- Smart request parameters (static / increment)
 
 ## Installing
 
