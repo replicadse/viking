@@ -10,8 +10,6 @@ use {
     },
 };
 
-include!("check_features.rs");
-
 mod args;
 mod config;
 mod engine;

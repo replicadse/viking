@@ -63,7 +63,7 @@ impl Engine {
             for t_idx in 0..phase.threads {
                 let thread_rx = tasks_rx.clone();
                 let thread_status_tx = status_tx.clone();
-                let on_error = phase.behaviours.error.clone();
+                let on_error = phase.behaviors.error.clone();
 
                 let thread = spawn(move || {
                     let client = reqwest::blocking::Client::new();
@@ -192,9 +192,9 @@ impl Engine {
                 },
             };
 
-            let mut behaviours = Vec::<(Regex, &Mark)>::new();
-            for behav in &phase.behaviours.ok {
-                behaviours.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
+            let mut behaviors = Vec::<(Regex, &Mark)>::new();
+            for behav in &phase.behaviors.ok {
+                behaviors.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
             }
 
             let mut report_timer = std::time::Instant::now();
@@ -205,7 +205,7 @@ impl Engine {
                     | ThreadEvent::Success { status_code } => {
                         stats.count += 1;
                         let s_code = status_code.as_u16().to_string();
-                        for b in &behaviours {
+                        for b in &behaviors {
                             if b.0.is_match(&s_code).unwrap() {
                                 match b.1 {
                                     | Mark::Success => stats.success += 1,

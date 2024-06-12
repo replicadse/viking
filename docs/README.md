@@ -67,7 +67,7 @@ campaigns:
                 - static: 1694901600
               to:
                 - static: 1694905200
-        behaviours:
+        behaviors:
           ok:
             - match: ^(200)$
               mark: success
