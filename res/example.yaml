@@ -4,32 +4,29 @@ campaigns:
   main:
     phases:
       - target:
-          env: "API_URI"
-        threads: 32
+          static: "https://jsonplaceholder.typicode.com/todos/{{ item }}" # static target
+          # env: "API_URL" # load from environment variable
+        threads: 4
         ends:
-          requests: 500
-          #time: !s 60
+          requests: 500 # fixed number of requests
+          #time: !s 60 # fixed duration
         timeout:
-          s: 2000
+          s: 2000 # timeout per request
         report:
           interval:
-            s: 1
+            s: 1 # report interval
         spec:
           get:
-            header:
-              x-api-key:
-                - env: "API_KEY"
-            query:
-              page:
-                - increment:
-                    start: 0
-                    step: 1
-              per_page:
-                - static: 4000
-              from:
-                - static: 1694901600
-              to:
-                - static: 1694905200
+            headers: {}
+              # x-api-key:
+              #   - env: "API_KEY"
+            vars:
+              item:
+                increment: # increment variable per request from _start_ by _step_
+                  start: 0
+                  step: 1
+              # item:
+              #   static: 4000
         behaviors:
           ok:
             - match: ^(200)$

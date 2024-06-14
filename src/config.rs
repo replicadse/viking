@@ -60,8 +60,8 @@ pub struct Phase {
 #[serde(rename_all = "snake_case")]
 pub enum Spec {
     Get {
-        header: HashMap<String, Vec<ValueParser>>,
-        query: HashMap<String, Vec<QueryValueParser>>,
+        headers: HashMap<String, ValueParser>,
+        vars: HashMap<String, VarsValueParser>,
     },
 }
 
@@ -74,7 +74,7 @@ pub enum ValueParser {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryValueParser {
+pub enum VarsValueParser {
     Static(String),
     Env(String),
     Increment { start: usize, step: usize },
