@@ -1,10 +1,16 @@
 use {
-    crate::config::{
-        Campaign,
-        Mark,
-        QueryValueParser,
-        Spec,
-        ValueParser,
+    crate::{
+        config::{
+            Campaign,
+            Mark,
+            Spec,
+            ValueParser,
+            VarsValueParser,
+        },
+        ledger::{
+            LedgerItem,
+            Response,
+        },
     },
     anyhow::Result,
     crossterm::terminal::{
@@ -12,7 +18,6 @@ use {
         ClearType,
     },
     fancy_regex::Regex,
-    itertools::Itertools,
     reqwest::{
         header::{
             HeaderMap,
@@ -23,7 +28,10 @@ use {
         StatusCode,
     },
     std::{
-        collections::BTreeMap,
+        collections::{
+            BTreeMap,
+            HashMap,
+        },
         thread::{
             spawn,
             JoinHandle,
@@ -54,8 +62,7 @@ impl Engine {
 
         for phase in &campaign.phases {
             let phase_start = std::time::Instant::now();
-            let (tasks_tx, tasks_rx) =
-                flume::bounded::<(Method, String, HeaderMap, Vec<(String, String)>, Duration)>(phase.threads * 2);
+            let (tasks_tx, tasks_rx) = flume::bounded::<(Method, String, HeaderMap, Duration)>(phase.threads * 2);
             let (status_tx, status_rx) = flume::bounded::<(usize, ThreadEvent)>(phase.threads * 2);
 
             let mut threads = Vec::<JoinHandle<_>>::with_capacity(phase.threads);
@@ -63,16 +70,12 @@ impl Engine {
             for t_idx in 0..phase.threads {
                 let thread_rx = tasks_rx.clone();
                 let thread_status_tx = status_tx.clone();
-                let on_error = phase.behaviours.error.clone();
-
+                let on_error = phase.behaviors.error.clone();
+                let thread_recorder = recorder.clone();
                 let thread = spawn(move || {
                     let client = reqwest::blocking::Client::new();
                     for msg in thread_rx.iter() {
-                        let req = client
-                            .request(msg.0, msg.1)
-                            .headers(msg.2)
-                            .query::<Vec<(String, String)>>(&msg.3)
-                            .timeout(msg.4);
+                        let req = client.request(msg.0, &msg.1).headers(msg.2).timeout(msg.3);
                         let response = req.send();
 
                         match response {
@@ -82,9 +85,37 @@ impl Engine {
                                         status_code: v.status(),
                                     }))
                                     .unwrap();
+
+                                if let Some(recorder) = &thread_recorder {
+                                    recorder
+                                        .send(
+                                            serde_json::to_string(&LedgerItem {
+                                                request: msg.1.clone(),
+                                                response: Response::Ok {
+                                                    code: v.status().as_u16(),
+                                                    content: v.text().unwrap(),
+                                                },
+                                            })
+                                            .unwrap(),
+                                        )
+                                        .unwrap();
+                                }
                             },
-                            | Err(_) => {
+                            | Err(e) => {
                                 thread_status_tx.send((t_idx, ThreadEvent::Error {})).unwrap();
+
+                                if let Some(recorder) = &thread_recorder {
+                                    recorder
+                                        .send(
+                                            serde_json::to_string(&LedgerItem {
+                                                request: msg.1.clone(),
+                                                response: Response::Err(format!("{:?}", e)),
+                                            })
+                                            .unwrap(),
+                                        )
+                                        .unwrap();
+                                }
+
                                 if let Some(v) = &on_error.backoff {
                                     std::thread::sleep(Duration::from_millis(v.to_ms()));
                                 }
@@ -105,38 +136,30 @@ impl Engine {
             drop(status_tx);
 
             match &phase.spec {
-                | Spec::Get { header, query } => {
+                | Spec::Get { headers: header, vars } => {
                     let header_map = HeaderMap::from_iter(
                         header
                             .iter()
                             .map(|v| {
                                 (
                                     v.0.parse().unwrap(),
-                                    v.1.into_iter()
-                                        .map(|v| {
-                                            match v {
-                                                | ValueParser::Static(v) => v.to_owned(),
-                                                | ValueParser::Env(v) => std::env::var(v).unwrap(),
-                                            }
-                                        })
-                                        .join(",")
-                                        .parse()
-                                        .unwrap(),
+                                    match v.1 {
+                                        | ValueParser::Static(v) => v.to_owned(),
+                                        | ValueParser::Env(v) => std::env::var(v).unwrap(),
+                                    }
+                                    .parse()
+                                    .unwrap(),
                                 )
                             })
                             .collect::<Vec<(HeaderName, HeaderValue)>>(),
                     );
 
-                    let mut query_map = query
+                    let mut hb = handlebars::Handlebars::new();
+                    hb.set_strict_mode(true);
+
+                    let mut vars_map = vars
                         .iter()
-                        .map(|v| {
-                            (
-                                v.0.clone(),
-                                v.1.into_iter()
-                                    .map(|v| QueryValueParserState::from(v.clone()))
-                                    .collect::<Vec<_>>(),
-                            )
-                        })
+                        .map(|v| (v.0.clone(), VarsValueParserState::from(v.1.clone())))
                         .collect::<Vec<_>>();
 
                     let target = match &phase.target {
@@ -147,7 +170,6 @@ impl Engine {
                     let timeout_ms = phase.timeout.to_ms();
                     let cond_req = phase.ends.requests.clone();
                     let cond_time = phase.ends.time.clone();
-                    let thread_recorder = recorder.clone();
 
                     spawn(move || {
                         let mut req_idx = 0_usize;
@@ -165,26 +187,18 @@ impl Engine {
                                 }
                             }
 
-                            let mut query_args = Vec::<(String, String)>::new();
-                            for q in &mut query_map {
-                                let mut q_str = "".to_owned();
-                                for q1 in &mut q.1 {
-                                    q_str += &q1.access_string();
-                                }
-                                query_args.push((q.0.clone(), q_str));
+                            let mut vars_map_rendered = HashMap::<&str, String>::new();
+                            for v in &mut vars_map {
+                                vars_map_rendered.insert(&v.0, v.1.access_string());
                             }
 
+                            let target = hb.render_template(&target, &vars_map_rendered).unwrap();
                             let payload = (
                                 Method::GET,
-                                target.clone(),
+                                target,
                                 header_map.clone(),
-                                query_args,
                                 Duration::from_millis(timeout_ms),
                             );
-                            match &thread_recorder {
-                                | Some(v) => v.send(format!("{:?}", payload)).unwrap(),
-                                | None => {},
-                            };
                             tasks_tx.send(payload).unwrap();
                             req_idx += 1;
                         }
@@ -192,9 +206,9 @@ impl Engine {
                 },
             };
 
-            let mut behaviours = Vec::<(Regex, &Mark)>::new();
-            for behav in &phase.behaviours.ok {
-                behaviours.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
+            let mut behaviors = Vec::<(Regex, &Mark)>::new();
+            for behav in &phase.behaviors.ok {
+                behaviors.push((Regex::new(&behav.match_).unwrap(), &behav.mark));
             }
 
             let mut report_timer = std::time::Instant::now();
@@ -205,7 +219,7 @@ impl Engine {
                     | ThreadEvent::Success { status_code } => {
                         stats.count += 1;
                         let s_code = status_code.as_u16().to_string();
-                        for b in &behaviours {
+                        for b in &behaviors {
                             if b.0.is_match(&s_code).unwrap() {
                                 match b.1 {
                                     | Mark::Success => stats.success += 1,
@@ -282,11 +296,11 @@ impl Engine {
     }
 }
 
-enum QueryValueParserState {
+enum VarsValueParserState {
     String(String),
     Increment { state: usize, step: usize },
 }
-impl QueryValueParserState {
+impl VarsValueParserState {
     pub fn access_string(&mut self) -> String {
         match self {
             | Self::String(v) => v.clone(),
@@ -301,12 +315,12 @@ impl QueryValueParserState {
         }
     }
 }
-impl From<QueryValueParser> for QueryValueParserState {
-    fn from(value: QueryValueParser) -> Self {
+impl From<VarsValueParser> for VarsValueParserState {
+    fn from(value: VarsValueParser) -> Self {
         match value {
-            | QueryValueParser::Static(v) => Self::String(v),
-            | QueryValueParser::Env(v) => Self::String(std::env::var(v).unwrap()),
-            | QueryValueParser::Increment { start, step } => Self::Increment { state: start, step },
+            | VarsValueParser::Static(v) => Self::String(v),
+            | VarsValueParser::Env(v) => Self::String(std::env::var(v).unwrap()),
+            | VarsValueParser::Increment { start, step } => Self::Increment { state: start, step },
         }
     }
 }

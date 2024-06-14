@@ -53,15 +53,15 @@ pub struct Phase {
     pub timeout: Duration,
     pub report: Report,
     pub spec: Spec,
-    pub behaviours: Behaviours,
+    pub behaviors: Behaviors,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Spec {
     Get {
-        header: HashMap<String, Vec<ValueParser>>,
-        query: HashMap<String, Vec<QueryValueParser>>,
+        headers: HashMap<String, ValueParser>,
+        vars: HashMap<String, VarsValueParser>,
     },
 }
 
@@ -74,7 +74,7 @@ pub enum ValueParser {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryValueParser {
+pub enum VarsValueParser {
     Static(String),
     Env(String),
     Increment { start: usize, step: usize },
@@ -82,20 +82,20 @@ pub enum QueryValueParser {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct Behaviours {
-    pub ok: Vec<Behaviour>,
-    pub error: ErrorBehaviour,
+pub struct Behaviors {
+    pub ok: Vec<Behavior>,
+    pub error: ErrorBehavior,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct ErrorBehaviour {
+pub struct ErrorBehavior {
     pub backoff: Option<Duration>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct Behaviour {
+pub struct Behavior {
     #[serde(rename = "match")]
     pub match_: String,
     pub mark: Mark,
